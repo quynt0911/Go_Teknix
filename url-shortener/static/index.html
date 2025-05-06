@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+            font-size: 36px;
+        }
+
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 280px;
+            margin-bottom: 10px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #43a047;
+        }
+
+        .result {
+            margin-top: 30px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        .link-button {
+            background-color: #2196F3;
+            margin-top: 10px;
+        }
+
+        .link-button:hover {
+            background-color: #1976D2;
+        }
+
+        .stat {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Rút gọn URL</h1>
+
+    <form action="/shorten" method="get">
+        <input type="text" name="url" placeholder="Nhập URL dài ở đây..." required>
+        <br>
+        <button type="submit">Rút gọn URL</button>
+    </form>
+
+    {{if .ShortURL}}
+        <div class="result">
+            <p><strong>URL rút gọn:</strong> <a href="{{.ShortURL}}" target="_blank">{{.ShortURL}}</a></p>
+            <a href="{{.ShortURL}}" target="_blank"><button class="link-button">Truy cập nhanh</button></a>
+            <div class="stat">
+                <strong>Lượt truy cập:</strong> {{.Visits}}
+            </div>
+        </div>
+    {{end}}
+
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tasks</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h2>Task Management</h2>
+      <div id="adminControls" style="display: none">
+        <button
+          class="btn btn-success mb-3"
+          data-toggle="modal"
+          data-target="#createTaskModal"
+        >
+          Create Task
+        </button>
+      </div>
+
+      <div id="taskList"></div>
+
+      <!-- Create Task Modal -->
+      <div
+        class="modal"
+        id="createTaskModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="createTaskModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="createTaskModalLabel">
+                Create New Task
+              </h5>
+              <button
+                type="button"
+                class="close"
+                data-dismiss="modal"
+                aria-label="Close"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <form id="createTaskForm">
+                <div class="form-group">
+                  <label for="taskTitle">Title</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="taskTitle"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="taskDescription">Description</label>
+                  <textarea
+                    class="form-control"
+                    id="taskDescription"
+                    rows="3"
+                    required
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="taskCategory">Category</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="taskCategory"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="taskDueDate">Due Date</label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    id="taskDueDate"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  Create Task
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Task Modal -->
+      <div
+        class="modal"
+        id="editTaskModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="editTaskModalLabel"
+        aria-hidden="true"
+      >
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
+              <button
+                type="button"
+                class="close"
+                data-dismiss="modal"
+                aria-label="Close"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <form id="editTaskForm">
+                <input type="hidden" id="editTaskId" />
+                <div class="form-group">
+                  <label for="editTaskTitle">Title</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editTaskTitle"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editTaskDescription">Description</label>
+                  <textarea
+                    class="form-control"
+                    id="editTaskDescription"
+                    rows="3"
+                    required
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="editTaskCategory">Category</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editTaskCategory"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editTaskDueDate">Due Date</label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    id="editTaskDueDate"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editTaskStatus">Status</label>
+                  <select class="form-control" id="editTaskStatus" required>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  Save Changes
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const token = localStorage.getItem("token");
+      const role = localStorage.getItem("role");
+
+      // Display admin controls
+      if (role === "admin") {
+        document.getElementById("adminControls").style.display = "block";
+      }
+
+      // Fetch all tasks
+      function fetchTasks() {
+        if (!token) {
+          window.location.href = "/login-page";
+        }
+
+        fetch("/tasks", {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            const taskList = document.getElementById("taskList");
+            taskList.innerHTML = "";
+
+            data.forEach((task) => {
+              const card = document.createElement("div");
+              card.className = "card mb-3";
+              card.innerHTML = `
+                        <div class="card-body">
+                            <h5 class="card-title">${task.title}</h5>
+                            <p class="card-text">${task.description}</p>
+                            <p class="card-text"><strong>Category:</strong> ${
+                              task.category
+                            }</p>
+                            <p class="card-text"><strong>Due Date:</strong> ${
+                              task.due_date
+                            }</p>
+                            <p class="card-text"><strong>Status:</strong> ${
+                              task.status
+                            }</p>
+                            ${
+                              role === "admin"
+                                ? `
+                                <button class="btn btn-warning mr-2" onclick="editTask(${task.id}, '${task.title}', '${task.description}', '${task.category}', '${task.due_date}', '${task.status}')">Edit</button>
+                                <button class="btn btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+                            `
+                                : ""
+                            }
+                        </div>
+                    `;
+              taskList.appendChild(card);
+            });
+          });
+      }
+
+      // Create task (đã chỉnh sửa)
+      document
+        .getElementById("createTaskForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const title = document.getElementById("taskTitle").value;
+          const description = document.getElementById("taskDescription").value;
+          const category = document.getElementById("taskCategory").value;
+          const due_date = document.getElementById("taskDueDate").value;
+
+          fetch("/tasks", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + token,
+            },
+            body: JSON.stringify({ title, description, category, due_date }),
+          }).then(() => {
+            $("#createTaskModal").modal("hide");
+            fetchTasks();
+          });
+        });
+
+      // Edit task
+      function editTask(id, title, description, category, due_date, status) {
+        document.getElementById("editTaskId").value = id;
+        document.getElementById("editTaskTitle").value = title;
+        document.getElementById("editTaskDescription").value = description;
+        document.getElementById("editTaskCategory").value = category;
+        document.getElementById("editTaskDueDate").value = due_date;
+        document.getElementById("editTaskStatus").value = status;
+        $("#editTaskModal").modal("show");
+      }
+
+      // Save edited task
+      document
+        .getElementById("editTaskForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const id = document.getElementById("editTaskId").value;
+          const title = document.getElementById("editTaskTitle").value;
+          const description = document.getElementById(
+            "editTaskDescription"
+          ).value;
+          const category = document.getElementById("editTaskCategory").value;
+          const due_date = document.getElementById("editTaskDueDate").value;
+          const status = document.getElementById("editTaskStatus").value;
+
+          fetch(`/tasks/${id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + token,
+            },
+            body: JSON.stringify({
+              title,
+              description,
+              category,
+              due_date,
+              status,
+            }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.id) {
+                $("#editTaskModal").modal("hide");
+                fetchTasks();
+              }
+            });
+        });
+
+      function deleteTask(id) {
+        if (!confirm("Are you sure you want to delete this task?")) return;
+
+        fetch(`/tasks/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error("Failed to delete task.");
+            }
+            return res.text(); // Hoặc res.json() nếu server trả JSON
+          })
+          .then(() => {
+            alert("Task deleted successfully.");
+            fetchTasks();
+          })
+          .catch((err) => {
+            console.error("Delete error:", err);
+            alert("Error deleting task. Please try again.");
+          });
+      }
+
+      fetchTasks();
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

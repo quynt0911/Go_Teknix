@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f7f7f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    #chat-box {
+      width: 100%;
+      max-width: 600px;
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    #log {
+      list-style-type: none;
+      padding: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    #log li {
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      background-color: #e6f0ff;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+
+    #log li.system {
+      background-color: #f0f8ff;
+      color: #555;
+      font-style: italic;
+    }
+
+    #log li.error {
+      background-color: #ffdddd;
+      color: #d9534f;
+      font-weight: bold;
+    }
+
+    #input-area {
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h2>💬 Chat App</h2>
+
+  <div id="chat-box">
+    <ul id="log"></ul>
+    <div id="input-area">
+      <input id="msg" placeholder="Nhập tin nhắn..." />
+      <button onclick="send()">Gửi</button>
+    </div>
+  </div>
+
+  <script>
+    // Nhận tên người dùng
+    let user = prompt("Nhập tên người dùng:");
+    if (!user || user.trim() === "") {
+      alert("Tên người dùng không được để trống!");
+      location.reload(); // Reload lại trang nếu không nhập
+    }
+
+    // Khởi tạo WebSocket
+    const socket = new WebSocket(`ws://localhost:8080/ws?user=${encodeURIComponent(user)}`);
+
+    // Xử lý sự kiện khi kết nối thành công
+    socket.onopen = () => {
+      appendMessage("✅ Kết nối thành công!", "system");
+    };
+
+    // Xử lý khi nhận tin nhắn
+    socket.onmessage = (e) => {
+      appendMessage(e.data);
+    };
+
+    // Xử lý lỗi WebSocket
+    socket.onerror = (err) => {
+      appendMessage("❌ Lỗi kết nối WebSocket", "error");
+      console.error("WebSocket error:", err);
+    };
+
+    // Xử lý khi kết nối WebSocket đóng
+    socket.onclose = () => {
+      appendMessage("🔌 Kết nối đã đóng.", "system");
+    };
+
+    // Hàm gửi tin nhắn
+    function send() {
+      const input = document.getElementById("msg");
+      const msg = input.value.trim();
+
+      if (msg === "") return;
+
+      socket.send(msg);  // Gửi tin nhắn qua WebSocket
+      input.value = "";  // Làm sạch ô nhập
+    }
+
+    // Hàm thêm tin nhắn vào giao diện
+    function appendMessage(message, className = "") {
+      const li = document.createElement("li");
+      li.textContent = message;
+      if (className) li.classList.add(className);
+      document.getElementById("log").appendChild(li);
+
+      // Auto-scroll xuống cuối khi có tin nhắn mới
+      li.scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
