@@ -5,48 +5,59 @@
   <title>Chat App</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f7f7f7;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f7f7f7, #e0e0e0);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 30px;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
     }
 
     h2 {
-      color: #333;
+      color: #4CAF50;
+      font-size: 32px;
       margin-bottom: 20px;
+      text-align: center;
+      text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
     }
 
     #chat-box {
       width: 100%;
       max-width: 600px;
-      background-color: #fff;
+      background-color: #ffffff;
       border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin-top: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 80vh;
     }
 
     #log {
       list-style-type: none;
       padding: 0;
-      max-height: 300px;
-      overflow-y: auto;
+      flex-grow: 1;
       margin-bottom: 20px;
+      overflow-y: auto;
+      border-bottom: 1px solid #ddd;
     }
 
     #log li {
-      padding: 8px 12px;
-      margin-bottom: 8px;
-      background-color: #e6f0ff;
-      border-radius: 6px;
-      transition: background-color 0.3s ease;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      background-color: #f0f8ff;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
 
     #log li.system {
-      background-color: #f0f8ff;
-      color: #555;
+      background-color: #d0f0d0;
+      color: #5a5a5a;
       font-style: italic;
     }
 
@@ -59,32 +70,58 @@
     #input-area {
       display: flex;
       gap: 10px;
+      align-items: center;
     }
 
     #msg {
       flex: 1;
-      padding: 10px;
+      padding: 14px;
       font-size: 16px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      transition: all 0.3s ease;
+    }
+
+    #msg:focus {
+      border-color: #4CAF50;
+      outline: none;
+      box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
     }
 
     button {
-      padding: 10px 16px;
+      padding: 12px 18px;
       font-size: 16px;
       background-color: #4CAF50;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 50px;
       cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
     }
 
     button:hover {
       background-color: #45a049;
+      transform: scale(1.05);
+    }
+
+    button:active {
+      transform: scale(0.98);
     }
 
     .error {
-      color: red;
+      color: #ff5f5f;
+    }
+
+    @media (max-width: 768px) {
+      #chat-box {
+        width: 90%;
+        padding: 15px;
+      }
+
+      h2 {
+        font-size: 28px;
+      }
     }
   </style>
 </head>
@@ -152,6 +189,13 @@
       // Auto-scroll xuống cuối khi có tin nhắn mới
       li.scrollIntoView({ behavior: 'smooth' });
     }
+
+    // Thêm sự kiện "Enter" để gửi tin nhắn nhanh
+    document.getElementById("msg").addEventListener("keyup", function (event) {
+      if (event.key === "Enter") {
+        send();
+      }
+    });
   </script>
 </body>
 </html>

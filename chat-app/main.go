@@ -1,48 +1,224 @@
+// main.go
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"chat-app/utils"
-	"chat-app/websocket"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
-func main() {
-	// Khởi tạo Redis và kiểm tra kết nối
-	err := utils.InitRedis()
+var ctx = context.Background()
+var redisClient *redis.Client
+
+// Khởi tạo Redis
+func InitRedis() error {
+	redisClient = redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	_, err := redisClient.Ping(ctx).Result()
+	return err
+}
+
+// Lấy lịch sử tin nhắn từ Redis
+func GetChatHistory() ([]string, error) {
+	messages, err := redisClient.LRange(ctx, "chat-history", 0, -1).Result()
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		return nil, err
+	}
+	return messages, nil
+}
+
+// Lưu tin nhắn và giới hạn số lượng tin nhắn trong Redis
+func SaveMessage(userID, msg string) {
+	entry := time.Now().Format(time.RFC3339) + " - " + userID + ": " + msg
+	redisClient.RPush(ctx, "chat-history", entry)
+	redisClient.LTrim(ctx, "chat-history", -100, -1) // Giới hạn chỉ giữ 100 tin nhắn gần nhất
+}
+
+// Rate limit: 5 tin/phút
+func AllowSend(userID string) bool {
+	key := "rate:" + userID
+	count, _ := redisClient.Incr(ctx, key).Result()
+	if count == 1 {
+		redisClient.Expire(ctx, key, time.Minute)
+	}
+	return count <= 5
+}
+
+// Theo dõi trạng thái người dùng
+func AddOnlineUser(userID string) {
+	redisClient.SAdd(ctx, "online-users", userID)
+}
+func RemoveOnlineUser(userID string) {
+	redisClient.SRem(ctx, "online-users", userID)
+}
+
+// ================= WebSocket ================= //
+
+type Client struct {
+	Conn   *websocket.Conn
+	UserID string
+}
+
+type Hub struct {
+	Clients    map[*websocket.Conn]string
+	Broadcast  chan []byte
+	Register   chan Client
+	Unregister chan *websocket.Conn
+}
+
+var hub = Hub{
+	Clients:    make(map[*websocket.Conn]string),
+	Broadcast:  make(chan []byte),
+	Register:   make(chan Client),
+	Unregister: make(chan *websocket.Conn),
+}
+
+func (h *Hub) Run() {
+	for {
+		select {
+		case client := <-h.Register:
+			h.Clients[client.Conn] = client.UserID
+			log.Printf("User %s has joined", client.UserID)
+		case conn := <-h.Unregister:
+			if user, ok := h.Clients[conn]; ok {
+				delete(h.Clients, conn)
+				conn.Close()
+				log.Printf("User %s disconnected", user)
+			}
+		case msg := <-h.Broadcast:
+			for conn := range h.Clients {
+				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					log.Printf("Send error: %v", err)
+					conn.Close()
+					delete(h.Clients, conn)
+				}
+			}
+		}
+	}
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+// func HandleWebSocket(c *gin.Context) {
+// 	userID := c.Query("user")
+// 	if userID == "" {
+// 		c.String(http.StatusBadRequest, "Missing user ID")
+// 		return
+// 	}
+
+// 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+// 	if err != nil {
+// 		log.Printf("WebSocket error: %v", err)
+// 		return
+// 	}
+
+// 	client := Client{Conn: conn, UserID: userID}
+// 	hub.Register <- client
+// 	AddOnlineUser(userID)
+
+// 	defer func() {
+// 		hub.Unregister <- conn
+// 		RemoveOnlineUser(userID)
+// 		conn.Close()
+// 	}()
+
+// 	for {
+// 		_, msg, err := conn.ReadMessage()
+// 		if err != nil {
+// 			break
+// 		}
+// 		if !AllowSend(userID) {
+// 			conn.WriteMessage(websocket.TextMessage, []byte("⚠️ Bạn đang gửi quá nhanh!"))
+// 			continue
+// 		}
+// 		SaveMessage(userID, string(msg))
+// 		formatted := []byte(userID + ": " + string(msg))
+// 		hub.Broadcast <- formatted
+// 	}
+// }
+
+func HandleWebSocket(c *gin.Context) {
+	userID := c.Query("user")
+	if userID == "" {
+		c.String(http.StatusBadRequest, "Missing user ID")
+		return
 	}
 
-	// Khởi chạy Hub ở goroutine
-	go websocket.HubInstance.Run()
+	// Tạo kết nối WebSocket
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Printf("WebSocket error: %v", err)
+		return
+	}
 
-	// Tạo router Gin
-	router := gin.Default()
+	client := Client{Conn: conn, UserID: userID}
+	hub.Register <- client
+	AddOnlineUser(userID)
 
-	// Cung cấp file HTML cho giao diện người dùng
-	router.StaticFile("/", "./public/index.html")
+	// Gửi lại lịch sử tin nhắn từ Redis
+	history, err := GetChatHistory()
+	if err != nil {
+		log.Printf("Error fetching chat history: %v", err)
+	}
+	for _, msg := range history {
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	}
 
-	// WebSocket endpoint
-	router.GET("/ws", websocket.HandleWebSocket)
+	defer func() {
+		hub.Unregister <- conn
+		RemoveOnlineUser(userID)
+		conn.Close()
+	}()
 
-	// Cấu hình để dừng server khi có tín hiệu từ hệ thống
+	// Nhận và gửi tin nhắn qua WebSocket
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		if !AllowSend(userID) {
+			conn.WriteMessage(websocket.TextMessage, []byte("⚠️ Bạn đang gửi quá nhanh!"))
+			continue
+		}
+		SaveMessage(userID, string(msg)) // Lưu tin nhắn vào Redis
+		formatted := []byte(userID + ": " + string(msg))
+		hub.Broadcast <- formatted
+	}
+}
+
+// ================== MAIN ================== //
+
+func main() {
+	if err := InitRedis(); err != nil {
+		log.Fatalf("Redis failed: %v", err)
+	}
+
+	go hub.Run()
+
+	r := gin.Default()
+	r.StaticFile("/", "./public/index.html")
+	r.GET("/ws", HandleWebSocket)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	// Chạy server
 	go func() {
-		if err := router.Run(":8080"); err != nil {
-			log.Fatal("Server failed:", err)
+		if err := r.Run(":8080"); err != nil {
+			log.Fatal("Server error:", err)
 		}
 	}()
 
-	// Chờ tín hiệu dừng server (Ctrl+C hoặc Kill)
 	<-stop
-	log.Println("Shutting down server gracefully...")
+	log.Println("Server shutting down...")
 }
