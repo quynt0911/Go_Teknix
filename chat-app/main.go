@@ -110,44 +110,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// func HandleWebSocket(c *gin.Context) {
-// 	userID := c.Query("user")
-// 	if userID == "" {
-// 		c.String(http.StatusBadRequest, "Missing user ID")
-// 		return
-// 	}
-
-// 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-// 	if err != nil {
-// 		log.Printf("WebSocket error: %v", err)
-// 		return
-// 	}
-
-// 	client := Client{Conn: conn, UserID: userID}
-// 	hub.Register <- client
-// 	AddOnlineUser(userID)
-
-// 	defer func() {
-// 		hub.Unregister <- conn
-// 		RemoveOnlineUser(userID)
-// 		conn.Close()
-// 	}()
-
-// 	for {
-// 		_, msg, err := conn.ReadMessage()
-// 		if err != nil {
-// 			break
-// 		}
-// 		if !AllowSend(userID) {
-// 			conn.WriteMessage(websocket.TextMessage, []byte("⚠️ Bạn đang gửi quá nhanh!"))
-// 			continue
-// 		}
-// 		SaveMessage(userID, string(msg))
-// 		formatted := []byte(userID + ": " + string(msg))
-// 		hub.Broadcast <- formatted
-// 	}
-// }
-
 func HandleWebSocket(c *gin.Context) {
 	userID := c.Query("user")
 	if userID == "" {

@@ -92,9 +92,24 @@
             <p><strong>URL rút gọn:</strong> <a href="{{.ShortURL}}" target="_blank">{{.ShortURL}}</a></p>
             <a href="{{.ShortURL}}" target="_blank"><button class="link-button">Truy cập nhanh</button></a>
             <div class="stat">
-                <strong>Lượt truy cập:</strong> {{.Visits}}
+                <strong>Lượt truy cập:</strong> <span id="visit-count">{{.Visits}}</span>
             </div>
         </div>
+
+        <script>
+            const shortUrl = "{{.ShortURL}}";
+            const code = shortUrl.split("/").pop(); // Lấy short code cuối URL
+
+            function updateVisitCount() {
+                fetch(`/api/visits?code=${code}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById("visit-count").textContent = data.visits;
+                    });
+            }
+
+            setInterval(updateVisitCount, 2000); // Cập nhật mỗi 2 giây
+        </script>
     {{end}}
 
 </body>
