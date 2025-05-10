@@ -1,4 +1,3 @@
-// main.go
 package main
 
 import (
@@ -7,8 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
@@ -17,7 +18,6 @@ import (
 var ctx = context.Background()
 var redisClient *redis.Client
 
-// Khởi tạo Redis
 func InitRedis() error {
 	redisClient = redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
@@ -26,7 +26,6 @@ func InitRedis() error {
 	return err
 }
 
-// Lấy lịch sử tin nhắn từ Redis
 func GetChatHistory() ([]string, error) {
 	messages, err := redisClient.LRange(ctx, "chat-history", 0, -1).Result()
 	if err != nil {
@@ -35,14 +34,13 @@ func GetChatHistory() ([]string, error) {
 	return messages, nil
 }
 
-// Lưu tin nhắn và giới hạn số lượng tin nhắn trong Redis
 func SaveMessage(userID, msg string) {
-	entry := time.Now().Format(time.RFC3339) + " - " + userID + ": " + msg
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	entry := timestamp + " - " + userID + ": " + msg
 	redisClient.RPush(ctx, "chat-history", entry)
-	redisClient.LTrim(ctx, "chat-history", -100, -1) // Giới hạn chỉ giữ 100 tin nhắn gần nhất
+	redisClient.LTrim(ctx, "chat-history", -100, -1)
 }
 
-// Rate limit: 5 tin/phút
 func AllowSend(userID string) bool {
 	key := "rate:" + userID
 	count, _ := redisClient.Incr(ctx, key).Result()
@@ -52,12 +50,29 @@ func AllowSend(userID string) bool {
 	return count <= 5
 }
 
-// Theo dõi trạng thái người dùng
 func AddOnlineUser(userID string) {
 	redisClient.SAdd(ctx, "online-users", userID)
 }
 func RemoveOnlineUser(userID string) {
 	redisClient.SRem(ctx, "online-users", userID)
+}
+func GetOnlineUsers() ([]string, error) {
+	users, err := redisClient.SMembers(ctx, "online-users").Result()
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func UpdateOnlineUsers() {
+	onlineUsers, err := GetOnlineUsers()
+	if err != nil {
+		log.Printf("Error fetching online users: %v", err)
+		return
+	}
+
+	onlineUsersMessage := "Online Users: " + strings.Join(onlineUsers, ", ")
+	hub.Broadcast <- []byte(onlineUsersMessage)
 }
 
 // ================= WebSocket ================= //
@@ -110,6 +125,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func HandleWebSocket(c *gin.Context) {
+	// Lấy tên người dùng từ query string
 	userID := c.Query("user")
 	if userID == "" {
 		c.String(http.StatusBadRequest, "Missing user ID")
@@ -136,10 +152,14 @@ func HandleWebSocket(c *gin.Context) {
 		conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 
+	// Gửi danh sách người dùng online khi kết nối
+	UpdateOnlineUsers()
+
 	defer func() {
 		hub.Unregister <- conn
 		RemoveOnlineUser(userID)
 		conn.Close()
+		UpdateOnlineUsers() // Gửi lại danh sách người dùng online khi ai đó offline
 	}()
 
 	// Nhận và gửi tin nhắn qua WebSocket

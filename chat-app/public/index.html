@@ -1,201 +1,268 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Chat App</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #f7f7f7, #e0e0e0);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chat App</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="chat-container">
+      <div id="chat-box">
+        <ul id="log"></ul>
+        <div id="input-area">
+          <input id="msg" placeholder="Nhập tin nhắn..." />
+          <button onclick="send()">Gửi</button>
+        </div>
+      </div>
 
-    h2 {
-      color: #4CAF50;
-      font-size: 32px;
-      margin-bottom: 20px;
-      text-align: center;
-      text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    #chat-box {
-      width: 100%;
-      max-width: 600px;
-      background-color: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      padding: 25px;
-      margin-top: 30px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 80vh;
-    }
-
-    #log {
-      list-style-type: none;
-      padding: 0;
-      flex-grow: 1;
-      margin-bottom: 20px;
-      overflow-y: auto;
-      border-bottom: 1px solid #ddd;
-    }
-
-    #log li {
-      padding: 12px 15px;
-      margin-bottom: 10px;
-      background-color: #f0f8ff;
-      border-radius: 8px;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    #log li.system {
-      background-color: #d0f0d0;
-      color: #5a5a5a;
-      font-style: italic;
-    }
-
-    #log li.error {
-      background-color: #ffdddd;
-      color: #d9534f;
-      font-weight: bold;
-    }
-
-    #input-area {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    #msg {
-      flex: 1;
-      padding: 14px;
-      font-size: 16px;
-      border-radius: 20px;
-      border: 1px solid #ddd;
-      background-color: #f9f9f9;
-      transition: all 0.3s ease;
-    }
-
-    #msg:focus {
-      border-color: #4CAF50;
-      outline: none;
-      box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
-    }
-
-    button {
-      padding: 12px 18px;
-      font-size: 16px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: background-color 0.3s ease, transform 0.2s ease;
-    }
-
-    button:hover {
-      background-color: #45a049;
-      transform: scale(1.05);
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    .error {
-      color: #ff5f5f;
-    }
-
-    @media (max-width: 768px) {
-      #chat-box {
-        width: 90%;
-        padding: 15px;
-      }
-
-      h2 {
-        font-size: 28px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <h2>💬 Chat App</h2>
-
-  <div id="chat-box">
-    <ul id="log"></ul>
-    <div id="input-area">
-      <input id="msg" placeholder="Nhập tin nhắn..." />
-      <button onclick="send()">Gửi</button>
+      <div id="online-users">
+        <h3>Online Users:</h3>
+        <ul id="user-list"></ul>
+      </div>
     </div>
-  </div>
 
-  <script>
-    // Nhận tên người dùng
-    let user = prompt("Nhập tên người dùng:");
-    if (!user || user.trim() === "") {
-      alert("Tên người dùng không được để trống!");
-      location.reload(); // Reload lại trang nếu không nhập
-    }
-
-    // Khởi tạo WebSocket
-    const socket = new WebSocket(`ws://localhost:8080/ws?user=${encodeURIComponent(user)}`);
-
-    // Xử lý sự kiện khi kết nối thành công
-    socket.onopen = () => {
-      appendMessage("✅ Kết nối thành công!", "system");
-    };
-
-    // Xử lý khi nhận tin nhắn
-    socket.onmessage = (e) => {
-      appendMessage(e.data);
-    };
-
-    // Xử lý lỗi WebSocket
-    socket.onerror = (err) => {
-      appendMessage("❌ Lỗi kết nối WebSocket", "error");
-      console.error("WebSocket error:", err);
-    };
-
-    // Xử lý khi kết nối WebSocket đóng
-    socket.onclose = () => {
-      appendMessage("🔌 Kết nối đã đóng.", "system");
-    };
-
-    // Hàm gửi tin nhắn
-    function send() {
-      const input = document.getElementById("msg");
-      const msg = input.value.trim();
-
-      if (msg === "") return;
-
-      socket.send(msg);  // Gửi tin nhắn qua WebSocket
-      input.value = "";  // Làm sạch ô nhập
-    }
-
-    // Hàm thêm tin nhắn vào giao diện
-    function appendMessage(message, className = "") {
-      const li = document.createElement("li");
-      li.textContent = message;
-      if (className) li.classList.add(className);
-      document.getElementById("log").appendChild(li);
-
-      // Auto-scroll xuống cuối khi có tin nhắn mới
-      li.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    // Thêm sự kiện "Enter" để gửi tin nhắn nhanh
-    document.getElementById("msg").addEventListener("keyup", function (event) {
-      if (event.key === "Enter") {
-        send();
+    <script>
+      // Bắt buộc người dùng nhập tên khi vào chat
+      let user = prompt("Nhập tên người dùng:");
+      if (!user || user.trim() === "") {
+        alert("Tên người dùng không được để trống!");
+        location.reload();
       }
-    });
-  </script>
-</body>
+
+      // Kết nối WebSocket
+      const socket = new WebSocket(
+        `ws://localhost:8080/ws?user=${encodeURIComponent(user)}`
+      );
+
+      socket.onopen = () => {
+        appendMessage("✅ Kết nối thành công!", "system");
+      };
+
+      socket.onmessage = (e) => {
+        appendMessage(e.data);
+
+        // Nếu tin nhắn bắt đầu bằng "Online Users:", thì cập nhật danh sách người dùng online
+        const message = e.data;
+        if (message.startsWith("Online Users:")) {
+          const users = message.slice(14).split(", ");
+          const userList = document.getElementById("user-list");
+          userList.innerHTML = ""; // Xóa danh sách cũ
+
+          users.forEach((user) => {
+            const li = document.createElement("li");
+            // Không cần thêm dấu chấm trạng thái nữa
+            li.textContent = user;
+            userList.appendChild(li);
+          });
+        }
+      };
+
+      socket.onerror = (err) => {
+        appendMessage("❌ Lỗi kết nối WebSocket", "error");
+        console.error("WebSocket error:", err);
+      };
+
+      socket.onclose = () => {
+        appendMessage("🔌 Kết nối đã đóng.", "system");
+      };
+
+      // Gửi tin nhắn qua socket
+      function send() {
+        const input = document.getElementById("msg");
+        const msg = input.value.trim();
+
+        if (msg === "") return;
+
+        socket.send(msg); // Gửi tin nhắn lên server
+        input.value = ""; // Xoá ô nhập
+      }
+
+      // Thêm tin nhắn vào khung chat
+      function appendMessage(message, className = "") {
+        const li = document.createElement("li");
+        li.textContent = message;
+        if (className) li.classList.add(className);
+        document.getElementById("log").appendChild(li);
+
+        // Cuộn xuống tin mới nhất
+        li.scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Cho phép nhấn Enter để gửi
+      document.getElementById("msg").addEventListener("keyup", function (event) {
+        if (event.key === "Enter") {
+          send();
+        }
+      });
+    </script>
+
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #f7f7f7, #e0e0e0);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .chat-container {
+        display: flex;
+        justify-content: space-between;
+        width: 90%;
+        max-width: 1200px;
+        margin-top: 20px;
+      }
+
+      #chat-box {
+        width: 70%;
+        background-color: #ffffff;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 80vh;
+        border: 2px solid #ddd;
+      }
+
+      #log {
+        list-style-type: none;
+        padding: 0;
+        flex-grow: 1;
+        margin-bottom: 20px;
+        overflow-y: auto;
+        border-bottom: 1px solid #ddd;
+      }
+
+      #log li {
+        padding: 12px 15px;
+        margin-bottom: 10px;
+        background-color: #f0f8ff;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      #log li.system {
+        background-color: #d0f0d0;
+        color: #5a5a5a;
+        font-style: italic;
+      }
+
+      #log li.error {
+        background-color: #ffdddd;
+        color: #d9534f;
+        font-weight: bold;
+      }
+
+      #input-area {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      #msg {
+        flex: 1;
+        padding: 14px;
+        font-size: 16px;
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        background-color: #f9f9f9;
+        transition: all 0.3s ease;
+      }
+
+      #msg:focus {
+        border-color: #4caf50;
+        outline: none;
+        box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+      }
+
+      button {
+        padding: 12px 18px;
+        font-size: 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+
+      button:hover {
+        background-color: #45a049;
+        transform: scale(1.05);
+      }
+
+      button:active {
+        transform: scale(0.98);
+      }
+
+      #online-users {
+        width: 28%;
+        max-width: 300px;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border: 2px solid #ddd;
+      }
+
+      #online-users h3 {
+        font-size: 20px;
+        color: #4caf50;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+      #user-list {
+        list-style-type: none;
+        padding: 0;
+      }
+
+      #user-list li {
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        background-color: #f0f8ff;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+      }
+
+      /* ❌ Đã bỏ phần dấu chấm trạng thái */
+      /* 
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 10px;
+        display: inline-block;
+      }
+
+      .online {
+        background-color: #4caf50;
+      }
+
+      .offline {
+        background-color: #b0b0b0;
+      }
+      */
+
+      @media (max-width: 768px) {
+        .chat-container {
+          flex-direction: column;
+        }
+
+        #chat-box {
+          width: 100%;
+          margin-bottom: 20px;
+        }
+
+        #online-users {
+          width: 100%;
+        }
+      }
+    </style>
+  </body>
 </html>
