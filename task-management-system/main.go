@@ -10,6 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -112,6 +113,83 @@ func CheckRole(requiredRole string) gin.HandlerFunc {
 
 // ==================== Controllers ====================
 
+// Register: API tạo tài khoản mới
+func Register(c *gin.Context) {
+	var registerReq struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&registerReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Kiểm tra xem email đã tồn tại trong cơ sở dữ liệu chưa
+	var existingUser User
+	if err := DB.Where("email = ?", registerReq.Email).First(&existingUser).Error; err == nil {
+		// Nếu email đã tồn tại, trả về lỗi
+		c.JSON(http.StatusConflict, gin.H{"error": "Email đã được sử dụng"})
+		return
+	}
+
+	// Mã hóa mật khẩu
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerReq.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể mã hóa mật khẩu"})
+		return
+	}
+
+	user := User{
+		Name:     registerReq.Name,
+		Email:    registerReq.Email,
+		Password: string(hashedPassword),
+		Role:     registerReq.Role,
+	}
+
+	// Tạo người dùng mới
+	if err := DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo tài khoản"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Tạo tài khoản thành công"})
+}
+
+// Login: API đăng nhập và tạo token
+func Login(c *gin.Context) {
+	var loginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&loginReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user User
+	if err := DB.Where("email = ?", loginReq.Email).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
+		return
+	}
+
+	// So sánh mật khẩu đã mã hóa
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginReq.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
+		return
+	}
+
+	// Sinh JWT Token
+	token, err := GenerateJWT(user.Email, user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"token": token, "role": user.Role})
+}
+
+// CreateTask: API tạo task mới
 func CreateTask(c *gin.Context) {
 	var task Task
 	if err := c.ShouldBindJSON(&task); err != nil {
@@ -126,6 +204,7 @@ func CreateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, task)
 }
 
+// GetTasks: API lấy danh sách task
 func GetTasks(c *gin.Context) {
 	var tasks []Task
 	if err := DB.Find(&tasks).Error; err != nil {
@@ -135,6 +214,7 @@ func GetTasks(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
+// UpdateTask: API cập nhật task
 func UpdateTask(c *gin.Context) {
 	id := c.Param("id")
 	var existingTask Task
@@ -161,6 +241,7 @@ func UpdateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, existingTask)
 }
 
+// DeleteTask: API xóa task
 func DeleteTask(c *gin.Context) {
 	id := c.Param("id")
 	taskID, err := strconv.Atoi(id)
@@ -181,32 +262,11 @@ func main() {
 	ConnectDB()
 	r := gin.Default()
 
+	// Đăng ký tài khoản mới
+	r.POST("/register", Register)
+
 	// Đăng nhập và sinh token JWT
-	r.POST("/login", func(c *gin.Context) {
-		var loginReq struct {
-			Email    string `json:"email"`
-			Password string `json:"password"`
-		}
-		if err := c.ShouldBindJSON(&loginReq); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		var role string
-		if loginReq.Email == "admin@123" && loginReq.Password == "123456" {
-			role = "admin"
-		} else if loginReq.Email == "user@123" && loginReq.Password == "123456" {
-			role = "user"
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
-			return
-		}
-		token, err := GenerateJWT(loginReq.Email, role)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo token"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"token": token, "role": role})
-	})
+	r.POST("/login", Login)
 
 	// API CRUD
 	r.POST("/tasks", CheckAuth, CheckRole("admin"), CreateTask)
