@@ -191,14 +191,30 @@ func Login(c *gin.Context) {
 
 // CreateTask: API tạo task mới
 func CreateTask(c *gin.Context) {
+	email := c.GetString("email")
+
+	// Tìm admin theo email
+	var admin User
+	if err := DB.Where("email = ?", email).First(&admin).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không tìm thấy người dùng"})
+		return
+	}
+
 	var task Task
 	if err := c.ShouldBindJSON(&task); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	result := DB.Create(&task)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+
+	// Kiểm tra các trường quan trọng không bị trống
+	if task.Title == "" || task.Description == "" || task.Status == "" || task.DueDate == "" || task.Category == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Các trường Title, Description, Status, DueDate, Category không được để trống"})
+		return
+	}
+
+	task.UserID = admin.ID // Gán ID admin tạo task
+	if err := DB.Create(&task).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, task)
@@ -211,7 +227,27 @@ func GetTasks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, tasks)
+
+	role := c.GetString("role")
+	email := c.GetString("email")
+	messages := []string{}
+
+	// Nếu là user → kiểm tra deadline
+	if role == "user" {
+		for _, task := range tasks {
+			due, err := time.Parse("2006-01-02", task.DueDate)
+			if err == nil && time.Now().After(due) && task.Status != "Completed" {
+				msg := fmt.Sprintf("Bạn chưa hoàn thành '%s' (deadline: %s)", task.Title, task.DueDate)
+				messages = append(messages, msg)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"tasks":     tasks,
+		"messages":  messages,
+		"requested": email,
+	})
 }
 
 // UpdateTask: API cập nhật task
