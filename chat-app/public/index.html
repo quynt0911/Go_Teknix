@@ -2,265 +2,252 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chat App</title>
-    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div class="chat-container">
       <div id="chat-box">
         <ul id="log"></ul>
         <div id="input-area">
-          <input id="msg" placeholder="Nhập tin nhắn..." />
+          <input id="msg" />
           <button onclick="send()">Gửi</button>
         </div>
       </div>
 
       <div id="online-users">
-        <h3>Online Users:</h3>
+        <h3>Người dùng đang online</h3>
         <ul id="user-list"></ul>
       </div>
     </div>
 
     <script>
-      // Bắt buộc người dùng nhập tên khi vào chat
-      let user = prompt("Nhập tên người dùng:");
+      let user = prompt("Tên của bạn:");
       if (!user || user.trim() === "") {
-        alert("Tên người dùng không được để trống!");
         location.reload();
       }
 
-      // Kết nối WebSocket
       const socket = new WebSocket(
         `ws://localhost:8080/ws?user=${encodeURIComponent(user)}`
       );
 
       socket.onopen = () => {
-        appendMessage("✅ Kết nối thành công!", "system");
+        appendMessage("✅ Đã kết nối máy chủ", "system");
       };
 
       socket.onmessage = (e) => {
-        appendMessage(e.data);
-
-        // Nếu tin nhắn bắt đầu bằng "Online Users:", thì cập nhật danh sách người dùng online
         const message = e.data;
+        appendMessage(message);
+
         if (message.startsWith("Online Users:")) {
           const users = message.slice(14).split(", ");
           const userList = document.getElementById("user-list");
-          userList.innerHTML = ""; // Xóa danh sách cũ
-
-          users.forEach((user) => {
+          userList.innerHTML = "";
+          users.forEach((u) => {
             const li = document.createElement("li");
-            // Không cần thêm dấu chấm trạng thái nữa
-            li.textContent = user;
+            li.textContent = u;
             userList.appendChild(li);
           });
         }
       };
 
       socket.onerror = (err) => {
-        appendMessage("❌ Lỗi kết nối WebSocket", "error");
+        appendMessage("❌ Kết nối lỗi", "error");
         console.error("WebSocket error:", err);
       };
 
       socket.onclose = () => {
-        appendMessage("🔌 Kết nối đã đóng.", "system");
+        appendMessage("🔌 Kết nối đã đóng", "system");
       };
 
-      // Gửi tin nhắn qua socket
       function send() {
         const input = document.getElementById("msg");
         const msg = input.value.trim();
-
-        if (msg === "") return;
-
-        socket.send(msg); // Gửi tin nhắn lên server
-        input.value = ""; // Xoá ô nhập
+        if (!msg) return;
+        socket.send(msg);
+        input.value = "";
       }
 
-      // Thêm tin nhắn vào khung chat
       function appendMessage(message, className = "") {
         const li = document.createElement("li");
         li.textContent = message;
         if (className) li.classList.add(className);
         document.getElementById("log").appendChild(li);
-
-        // Cuộn xuống tin mới nhất
         li.scrollIntoView({ behavior: "smooth" });
       }
 
-      // Cho phép nhấn Enter để gửi
-      document.getElementById("msg").addEventListener("keyup", function (event) {
-        if (event.key === "Enter") {
-          send();
-        }
-      });
+      document
+        .getElementById("msg")
+        .addEventListener("keyup", function (event) {
+          if (event.key === "Enter") {
+            send();
+          }
+        });
     </script>
-
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #f7f7f7, #e0e0e0);
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+        background: linear-gradient(135deg, #e3f2fd, #fff);
+        height: 100vh;
         display: flex;
         justify-content: center;
         align-items: flex-start;
-        height: 100vh;
-        margin: 0;
+        padding-top: 40px;
       }
 
       .chat-container {
         display: flex;
-        justify-content: space-between;
+        flex-direction: row;
         width: 90%;
         max-width: 1200px;
-        margin-top: 20px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
       }
 
       #chat-box {
-        width: 70%;
-        background-color: #ffffff;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        padding: 30px;
+        flex: 3;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        padding: 30px;
+        border-right: 1px solid #eee;
         height: 80vh;
-        border: 2px solid #ddd;
       }
 
       #log {
-        list-style-type: none;
+        list-style: none;
         padding: 0;
+        margin: 0;
+        overflow-y: auto;
         flex-grow: 1;
         margin-bottom: 20px;
-        overflow-y: auto;
-        border-bottom: 1px solid #ddd;
+        scroll-behavior: smooth;
       }
 
       #log li {
-        padding: 12px 15px;
-        margin-bottom: 10px;
-        background-color: #f0f8ff;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        max-width: 70%;
+        margin-bottom: 15px;
+        padding: 12px 16px;
+        border-radius: 16px;
+        background: #f1f1f1;
+        font-size: 15px;
+        word-break: break-word;
+        animation: fadeIn 0.3s ease-in-out;
       }
 
       #log li.system {
         background-color: #d0f0d0;
-        color: #5a5a5a;
         font-style: italic;
       }
 
       #log li.error {
         background-color: #ffdddd;
-        color: #d9534f;
+        color: #d32f2f;
         font-weight: bold;
       }
 
       #input-area {
         display: flex;
         gap: 10px;
-        align-items: center;
+        margin-top: auto;
       }
 
       #msg {
         flex: 1;
         padding: 14px;
-        font-size: 16px;
-        border-radius: 20px;
-        border: 1px solid #ddd;
-        background-color: #f9f9f9;
-        transition: all 0.3s ease;
+        font-size: 15px;
+        border: 1px solid #ccc;
+        border-radius: 25px;
+        background-color: #fafafa;
+        transition: border 0.3s ease;
       }
 
       #msg:focus {
         border-color: #4caf50;
         outline: none;
-        box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+        box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
       }
 
       button {
-        padding: 12px 18px;
-        font-size: 16px;
+        padding: 12px 20px;
+        font-size: 15px;
+        border: none;
+        border-radius: 25px;
         background-color: #4caf50;
         color: white;
-        border: none;
-        border-radius: 50px;
+        font-weight: 600;
         cursor: pointer;
-        transition: background-color 0.3s ease, transform 0.2s ease;
+        transition: 0.3s ease;
       }
 
       button:hover {
-        background-color: #45a049;
+        background-color: #43a047;
         transform: scale(1.05);
       }
 
-      button:active {
-        transform: scale(0.98);
-      }
-
       #online-users {
-        width: 28%;
-        max-width: 300px;
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border: 2px solid #ddd;
+        flex: 1;
+        padding: 30px;
+        background-color: #fafafa;
       }
 
       #online-users h3 {
-        font-size: 20px;
-        color: #4caf50;
-        margin-bottom: 15px;
         text-align: center;
+        color: #4caf50;
+        margin-bottom: 20px;
       }
 
       #user-list {
-        list-style-type: none;
+        list-style: none;
         padding: 0;
+        margin: 0;
       }
 
       #user-list li {
-        padding: 8px 12px;
+        background-color: #e3f2fd;
+        padding: 10px 14px;
+        border-radius: 10px;
         margin-bottom: 10px;
-        background-color: #f0f8ff;
-        border-radius: 6px;
-        transition: all 0.3s ease;
+        font-weight: 500;
+        font-size: 15px;
       }
 
-      /* ❌ Đã bỏ phần dấu chấm trạng thái */
-      /* 
-      .status-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 10px;
-        display: inline-block;
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
-
-      .online {
-        background-color: #4caf50;
-      }
-
-      .offline {
-        background-color: #b0b0b0;
-      }
-      */
 
       @media (max-width: 768px) {
         .chat-container {
           flex-direction: column;
+          height: auto;
+        }
+
+        #chat-box,
+        #online-users {
+          width: 100%;
+          border: none;
         }
 
         #chat-box {
-          width: 100%;
-          margin-bottom: 20px;
-        }
-
-        #online-users {
-          width: 100%;
+          border-bottom: 1px solid #eee;
         }
       }
     </style>

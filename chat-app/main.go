@@ -125,14 +125,12 @@ var upgrader = websocket.Upgrader{
 }
 
 func HandleWebSocket(c *gin.Context) {
-	// Lấy tên người dùng từ query string
 	userID := c.Query("user")
 	if userID == "" {
 		c.String(http.StatusBadRequest, "Missing user ID")
 		return
 	}
 
-	// Tạo kết nối WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("WebSocket error: %v", err)
@@ -143,7 +141,6 @@ func HandleWebSocket(c *gin.Context) {
 	hub.Register <- client
 	AddOnlineUser(userID)
 
-	// Gửi lại lịch sử tin nhắn từ Redis
 	history, err := GetChatHistory()
 	if err != nil {
 		log.Printf("Error fetching chat history: %v", err)
@@ -152,17 +149,15 @@ func HandleWebSocket(c *gin.Context) {
 		conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 
-	// Gửi danh sách người dùng online khi kết nối
 	UpdateOnlineUsers()
 
 	defer func() {
 		hub.Unregister <- conn
 		RemoveOnlineUser(userID)
 		conn.Close()
-		UpdateOnlineUsers() // Gửi lại danh sách người dùng online khi ai đó offline
+		UpdateOnlineUsers()
 	}()
 
-	// Nhận và gửi tin nhắn qua WebSocket
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -172,7 +167,7 @@ func HandleWebSocket(c *gin.Context) {
 			conn.WriteMessage(websocket.TextMessage, []byte("⚠️ Bạn đang gửi quá nhanh!"))
 			continue
 		}
-		SaveMessage(userID, string(msg)) // Lưu tin nhắn vào Redis
+		SaveMessage(userID, string(msg))
 		formatted := []byte(userID + ": " + string(msg))
 		hub.Broadcast <- formatted
 	}
@@ -187,7 +182,10 @@ func main() {
 
 	go hub.Run()
 
-	r := gin.Default()
+	// r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+
 	r.StaticFile("/", "./public/index.html")
 	r.GET("/ws", HandleWebSocket)
 
@@ -195,11 +193,12 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
+		log.Println("🚀 Server đang chạy tại http://localhost:8080")
 		if err := r.Run(":8080"); err != nil {
-			log.Fatal("Server error:", err)
+			log.Fatal("❌ Server error:", err)
 		}
 	}()
 
 	<-stop
-	log.Println("Server shutting down...")
+	log.Println("⛔ Server shutting down...")
 }

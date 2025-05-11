@@ -56,7 +56,6 @@ func ConnectDB() {
 
 var jwtKey = []byte("your_secret_key")
 
-// GenerateJWT: Tạo JWT token từ email và role
 func GenerateJWT(email string, role string) (string, error) {
 	claims := &jwt.MapClaims{
 		"email": email,
@@ -68,7 +67,6 @@ func GenerateJWT(email string, role string) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-// CheckAuth: Middleware xác thực JWT
 func CheckAuth(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -98,7 +96,6 @@ func CheckAuth(c *gin.Context) {
 	c.Next()
 }
 
-// CheckRole: Middleware kiểm tra role người dùng
 func CheckRole(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
@@ -113,7 +110,6 @@ func CheckRole(requiredRole string) gin.HandlerFunc {
 
 // ==================== Controllers ====================
 
-// Register: API tạo tài khoản mới
 func Register(c *gin.Context) {
 	var registerReq struct {
 		Name     string `json:"name"`
@@ -126,15 +122,12 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Kiểm tra xem email đã tồn tại trong cơ sở dữ liệu chưa
 	var existingUser User
 	if err := DB.Where("email = ?", registerReq.Email).First(&existingUser).Error; err == nil {
-		// Nếu email đã tồn tại, trả về lỗi
 		c.JSON(http.StatusConflict, gin.H{"error": "Email đã được sử dụng"})
 		return
 	}
 
-	// Mã hóa mật khẩu
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerReq.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể mã hóa mật khẩu"})
@@ -148,7 +141,6 @@ func Register(c *gin.Context) {
 		Role:     registerReq.Role,
 	}
 
-	// Tạo người dùng mới
 	if err := DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo tài khoản"})
 		return
@@ -157,7 +149,6 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Tạo tài khoản thành công"})
 }
 
-// Login: API đăng nhập và tạo token
 func Login(c *gin.Context) {
 	var loginReq struct {
 		Email    string `json:"email"`
@@ -174,13 +165,11 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// So sánh mật khẩu đã mã hóa
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginReq.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
 		return
 	}
 
-	// Sinh JWT Token
 	token, err := GenerateJWT(user.Email, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo token"})
@@ -189,11 +178,9 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token, "role": user.Role})
 }
 
-// CreateTask: API tạo task mới
 func CreateTask(c *gin.Context) {
 	email := c.GetString("email")
 
-	// Tìm admin theo email
 	var admin User
 	if err := DB.Where("email = ?", email).First(&admin).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không tìm thấy người dùng"})
@@ -206,13 +193,12 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	// Kiểm tra các trường quan trọng không bị trống
 	if task.Title == "" || task.Description == "" || task.Status == "" || task.DueDate == "" || task.Category == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Các trường Title, Description, Status, DueDate, Category không được để trống"})
 		return
 	}
 
-	task.UserID = admin.ID // Gán ID admin tạo task
+	task.UserID = admin.ID
 	if err := DB.Create(&task).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -220,7 +206,6 @@ func CreateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, task)
 }
 
-// GetTasks: API lấy danh sách task
 func GetTasks(c *gin.Context) {
 	var tasks []Task
 	if err := DB.Find(&tasks).Error; err != nil {
@@ -232,7 +217,6 @@ func GetTasks(c *gin.Context) {
 	email := c.GetString("email")
 	messages := []string{}
 
-	// Nếu là user → kiểm tra deadline
 	if role == "user" {
 		for _, task := range tasks {
 			due, err := time.Parse("2006-01-02", task.DueDate)
@@ -250,7 +234,6 @@ func GetTasks(c *gin.Context) {
 	})
 }
 
-// UpdateTask: API cập nhật task
 func UpdateTask(c *gin.Context) {
 	id := c.Param("id")
 	var existingTask Task
@@ -277,7 +260,6 @@ func UpdateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, existingTask)
 }
 
-// DeleteTask: API xóa task
 func DeleteTask(c *gin.Context) {
 	id := c.Param("id")
 	taskID, err := strconv.Atoi(id)
@@ -298,13 +280,9 @@ func main() {
 	ConnectDB()
 	r := gin.Default()
 
-	// Đăng ký tài khoản mới
 	r.POST("/register", Register)
-
-	// Đăng nhập và sinh token JWT
 	r.POST("/login", Login)
 
-	// API CRUD
 	r.POST("/tasks", CheckAuth, CheckRole("admin"), CreateTask)
 	r.GET("/tasks", CheckAuth, GetTasks)
 	r.PUT("/tasks/:id", CheckAuth, CheckRole("admin"), UpdateTask)

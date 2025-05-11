@@ -19,12 +19,10 @@ var (
 	charset     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
-// Hàm main - Khởi chạy ứng dụng và định tuyến các endpoint
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	initDB()
 
-	// Định nghĩa các route
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/shorten", shortenHandler)
 	http.HandleFunc("/shorturl/", redirectHandler)
@@ -46,10 +44,9 @@ func initDB() {
 	if err := db.Ping(); err != nil {
 		panic(err)
 	}
-	fmt.Println("✅ Đã kết nối đến PostgreSQL!")
+	fmt.Println("✅ Đã kết nối thành công đến PostgreSQL")
 }
 
-// Trang chính: hiển thị form nhập URL và kết quả rút gọn nếu có
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.ParseFiles("static/index.html")
 	if err != nil {
@@ -62,7 +59,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	shortCode := ""
 	visits := 0
 
-	// Nếu có cookie, lấy thông tin URL rút gọn và số lượt truy cập
 	if err == nil {
 		shortURL = cookie.Value
 		shortCode = strings.TrimPrefix(shortURL, "http://localhost:8080/shorturl/")
@@ -84,7 +80,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-// Xử lý khi người dùng submit URL để rút gọn
 func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	originalURL := r.URL.Query().Get("url")
 	if originalURL == "" {
@@ -92,7 +87,6 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Nếu không có http/https thì thêm mặc định
 	if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
 		originalURL = "https://www." + originalURL
 	}
@@ -100,14 +94,12 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	shortCode := generateShortURL()
 	shortURL := "http://localhost:8080/shorturl/" + shortCode
 
-	// Lưu vào cơ sở dữ liệu
 	_, err := db.Exec("INSERT INTO urls (short_code, original_url, visit_count) VALUES ($1, $2, 0)", shortCode, originalURL)
 	if err != nil {
 		http.Error(w, "Không thể lưu URL.", http.StatusInternalServerError)
 		return
 	}
 
-	// Lưu cookie để hiển thị kết quả sau redirect
 	http.SetCookie(w, &http.Cookie{
 		Name:  "shortURL",
 		Value: shortURL,
@@ -117,7 +109,6 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// Xử lý chuyển hướng từ shortURL → originalURL và cập nhật số lượt truy cập
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	shortCode := strings.TrimPrefix(r.URL.Path, "/shorturl/")
 
@@ -128,13 +119,11 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cập nhật số lượt truy cập
 	_, _ = db.Exec("UPDATE urls SET visit_count = visit_count + 1 WHERE short_code = $1", shortCode)
 
 	http.Redirect(w, r, originalURL, http.StatusFound)
 }
 
-// API: Trả về lượt truy cập theo short code (sử dụng cho frontend cập nhật real-time)
 func visitCountHandler(w http.ResponseWriter, r *http.Request) {
 	shortCode := r.URL.Query().Get("code")
 	if shortCode == "" {
@@ -157,7 +146,6 @@ func visitCountHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Tạo short code ngẫu nhiên với độ dài cố định
 func generateShortURL() string {
 	b := make([]byte, shortLength)
 	for i := range b {
