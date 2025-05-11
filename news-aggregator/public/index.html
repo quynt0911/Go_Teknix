@@ -1,134 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>Latest News</title>
+	<meta charset="UTF-8" />
+	<title>Tin tức mới nhất</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<style>
 		@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
 
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
 		body {
 			font-family: 'Roboto', sans-serif;
-			max-width: 800px;
-			margin: auto;
-			padding: 30px 20px;
-			background: linear-gradient(to right, #fdfbfb, #ebedee);
-			color: #333;
+			background: #f4f6f8;
+			color: #2c3e50;
+			padding: 40px 20px;
 		}
 
 		h1 {
 			text-align: center;
-			font-size: 2.5em;
-			color: #2c3e50;
+			font-size: 3em;
 			margin-bottom: 30px;
+			color: #1a1a1a;
 		}
 
 		#searchBox {
+			display: block;
+			margin: 0 auto 40px auto;
 			width: 100%;
-			padding: 12px 16px;
-			margin-bottom: 25px;
-			border-radius: 8px;
+			max-width: 500px;
+			padding: 14px 20px;
+			border-radius: 12px;
 			border: 1px solid #ccc;
-			font-size: 16px;
-			transition: 0.3s;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+			font-size: 1em;
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+			transition: border 0.3s ease, box-shadow 0.3s ease;
 		}
 
 		#searchBox:focus {
+			border-color: #3498db;
+			box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
 			outline: none;
-			border-color: #2980b9;
-			box-shadow: 0 0 8px rgba(41, 128, 185, 0.3);
+		}
+
+		#newsList {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+			gap: 24px;
 		}
 
 		.news-item {
-			margin-bottom: 20px;
-			padding: 15px 20px;
 			background-color: #ffffff;
-			border-radius: 10px;
-			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 			transition: transform 0.2s ease, box-shadow 0.2s ease;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			height: 100%;
 		}
 
 		.news-item:hover {
-			transform: translateY(-4px);
-			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+			transform: translateY(-6px);
+			box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
 		}
 
-		a {
+		.news-item a {
 			text-decoration: none;
-			color: #2980b9;
-			font-size: 1.1em;
+			color: #2c3e50;
 			font-weight: bold;
-			display: inline-block;
-			margin-bottom: 6px;
+			font-size: 1.2em;
+			line-height: 1.4;
+			margin-bottom: 10px;
+			display: block;
 		}
 
-		a:hover {
-			text-decoration: underline;
+		.news-item a:hover {
+			color: #3498db;
 		}
 
-		small {
-			color: #888;
+		.news-item small {
+			color: #777;
+			font-size: 0.9em;
 		}
 
 		.no-results {
 			text-align: center;
 			color: #999;
 			font-style: italic;
-			margin-top: 30px;
+			grid-column: 1 / -1;
+			font-size: 1.1em;
 		}
 	</style>
 </head>
 <body>
-	<h1>📰 Latest News</h1>
+	<h1>📰 Tin tức mới nhất</h1>
 
-	<input type="text" id="searchBox" placeholder="🔍 Search by article title...">
+	<input type="text" id="searchBox" placeholder="Tìm kiếm theo tiêu đề bài viết...">
 
-	<div id="newsList">Loading news...</div>
+	<div id="newsList">Đang tải tin tức...</div>
 
 	<script>
 		let allArticles = [];
 
-		// Fetch articles from the server
 		fetch("/articles")
-			.then(response => response.json())
+			.then(res => res.json())
 			.then(data => {
 				allArticles = data;
 				renderArticles(data);
 			})
-			.catch(error => {
-				document.getElementById("newsList").innerText = "Error loading news.";
-				console.error("Error:", error);
+			.catch(err => {
+				document.getElementById("newsList").innerText = "Không thể tải tin tức.";
+				console.error("Error:", err);
 			});
 
-		// Render articles on the page
 		function renderArticles(articles) {
 			const list = document.getElementById("newsList");
-			list.innerHTML = ""; // Clear the current list
+			list.innerHTML = "";
 
 			if (articles.length === 0) {
-				list.innerHTML = "<p class='no-results'>No matching results found.</p>";
+				list.innerHTML = "<p class='no-results'>Không tìm thấy kết quả phù hợp.</p>";
 				return;
 			}
 
-			// Append each article
 			articles.forEach(article => {
 				const item = document.createElement("div");
 				item.className = "news-item";
 				item.innerHTML = `
-					<a href="${article.url}" target="_blank">${article.title}</a><br>
-					<small>Source: ${article.source}</small>
+					<a href="${article.url}" target="_blank">${article.title}</a>
+					<small>Nguồn: ${article.source}</small>
 				`;
 				list.appendChild(item);
 			});
 		}
 
-		// Search functionality
 		document.getElementById("searchBox").addEventListener("input", function () {
 			const keyword = this.value.toLowerCase();
 			const filtered = allArticles.filter(article =>
 				article.title.toLowerCase().includes(keyword)
 			);
-			renderArticles(filtered); // Re-render filtered articles
+			renderArticles(filtered);
 		});
 	</script>
 </body>
