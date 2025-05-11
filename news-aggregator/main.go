@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	// "html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -16,13 +14,14 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// Cấu trúc bài viết
+// ===== Article Struct =====
 type Article struct {
 	Title  string `json:"title"`
 	URL    string `json:"url"`
 	Source string `json:"source"`
 }
 
+// ===== Rate Limiter =====
 type RateLimiter struct {
 	requests map[string]int
 	mu       sync.Mutex
@@ -60,6 +59,7 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
+// ===== Scraper =====
 func scrapeSource(url string, wg *sync.WaitGroup, ch chan<- Article) {
 	defer wg.Done()
 
@@ -114,16 +114,21 @@ func ScrapeNews(sources []string) []Article {
 	return articles
 }
 
-func GetLatestArticles(w http.ResponseWriter, r *http.Request) {
-	sources := []string{"https://vnexpress.net/", "https://dantri.com.vn/"}
-	articles := ScrapeNews(sources)
+// ===== Kafka Producer =====
+var kafkaWriter *kafka.Writer
 
-	if len(articles) == 0 {
-		log.Println("Không có bài viết nào")
+func InitProducer() {
+	kafkaWriter = &kafka.Writer{
+		Addr:     kafka.TCP("localhost:9092"),
+		Topic:    "news_topic",
+		Balancer: &kafka.LeastBytes{},
 	}
+	log.Println("Kafka producer initialized")
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(articles)
+func SendNewsToKafka(newsJson string) error {
+	msg := kafka.Message{Value: []byte(newsJson)}
+	return kafkaWriter.WriteMessages(context.Background(), msg)
 }
 
 func publishNewsToKafka(article Article) error {
@@ -143,6 +148,72 @@ func publishNewsToKafka(article Article) error {
 	}
 
 	return writer.WriteMessages(context.Background(), msg)
+}
+
+// ===== Kafka Consumer =====
+func StartConsumer(newsChan chan string) {
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{"localhost:9092"},
+		Topic:   "news_topic",
+		GroupID: "news-consumer-group",
+	})
+
+	go func() {
+		for {
+			m, err := r.ReadMessage(context.Background())
+			if err != nil {
+				log.Println("Consumer error:", err)
+				continue
+			}
+			fmt.Println("Received message:", string(m.Value))
+			newsChan <- string(m.Value)
+		}
+	}()
+}
+
+func ConsumeNews() {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{"localhost:9093"},
+		Topic:   "news-updates",
+		GroupID: "news-group",
+	})
+
+	for {
+		m, err := reader.ReadMessage(nil)
+		if err != nil {
+			log.Fatal("failed to read message: ", err)
+		}
+		log.Printf("Consumed message: %s\n", string(m.Value))
+	}
+}
+
+func ProduceArticle(article string) {
+	writer := kafka.NewWriter(kafka.WriterConfig{
+		Brokers: []string{"localhost:9093"},
+		Topic:   "news-updates",
+	})
+
+	err := writer.WriteMessages(nil, kafka.Message{
+		Value: []byte(article),
+	})
+	if err != nil {
+		log.Fatal("failed to produce message: ", err)
+	}
+
+	writer.Close()
+}
+
+// ===== HTTP Handlers =====
+func GetLatestArticles(w http.ResponseWriter, r *http.Request) {
+	sources := []string{"https://vnexpress.net/", "https://dantri.com.vn/"}
+	articles := ScrapeNews(sources)
+
+	if len(articles) == 0 {
+		log.Println("Không có bài viết nào")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(articles)
 }
 
 func PublishNews(w http.ResponseWriter, r *http.Request) {
@@ -166,17 +237,21 @@ func PublishNews(w http.ResponseWriter, r *http.Request) {
 
 func SetupRoutes() {
 	http.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./public"))))
-
 	http.HandleFunc("/articles", GetLatestArticles)
 	http.HandleFunc("/publish", PublishNews)
 }
 
+// ===== MAIN =====
 func main() {
 	rateLimiter := NewRateLimiter(100, 1*time.Minute)
 	SetupRoutes()
+	InitProducer()
+	newsChan := make(chan string)
+	StartConsumer(newsChan)
 
 	http.Handle("/", rateLimiter.Limit(http.DefaultServeMux))
 
-	log.Println("Server running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("Server running on http://localhost:8081")
+	log.Fatal(http.ListenAndServe(":8081", nil))
+
 }

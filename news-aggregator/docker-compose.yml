@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   zookeeper:
     image: zookeeper:3.7
@@ -24,6 +26,21 @@ services:
       - zookeeper
     networks:
       - kafka-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-news-app
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+    networks:
+      - kafka-net
+    environment:
+      - KAFKA_BROKER=host.docker.internal:9092
+
 
 networks:
   kafka-net:
