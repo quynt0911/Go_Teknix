@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý Công việc</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .auth-section {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .form-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-title {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button.secondary {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+        
+        button.secondary:hover {
+            background-color: #e5e5e5;
+        }
+        
+        button.danger {
+            background-color: #f44336;
+        }
+        
+        button.danger:hover {
+            background-color: #d32f2f;
+        }
+        
+        .task-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .task-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .task-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .task-category {
+            background-color: #e1f5fe;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .task-due-date {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .task-description {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        
+        .task-status {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .status-pending {
+            background-color: #fff9c4;
+        }
+        
+        .status-inprogress {
+            background-color: #bbdefb;
+        }
+        
+        .status-completed {
+            background-color: #c8e6c9;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .alert {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .alert-danger {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .alert-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .alert-warning {
+            background-color: #fff8e1;
+            color: #f57f17;
+            border: 1px solid #ffe082;
+        }
+        
+        .tab-container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            padding: 10px 15px;
+            background-color: #f1f1f1;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .tab-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .notification {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Hệ thống Quản lý Công việc</h1>
+            <div class="auth-section">
+                <div id="userInfo" class="hidden">
+                    <span id="userRole"></span>
+                    <button onclick="logout()" class="secondary">Đăng xuất</button>
+                </div>
+                <div id="authButtons">
+                    <button onclick="showTab('login')" class="secondary">Đăng nhập</button>
+                    <button onclick="showTab('register')" class="secondary">Đăng ký</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="notification-container" id="notificationContainer"></div>
+        
+        <div class="tab-container">
+            <div class="tab-buttons" id="tabButtons">
+                <button class="tab-button active" onclick="showTab('login')">Đăng nhập</button>
+                <button class="tab-button" onclick="showTab('register')">Đăng ký</button>
+            </div>
+            
+            <div id="loginTab" class="tab-content active">
+                <div class="form-container">
+                    <h2 class="form-title">Đăng nhập</h2>
+                    <div id="loginError" class="alert alert-danger hidden"></div>
+                    <form id="loginForm" onsubmit="login(event)">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Mật khẩu</label>
+                            <input type="password" id="loginPassword" required>
+                        </div>
+                        <button type="submit">Đăng nhập</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="registerTab" class="tab-content">
+                <div class="form-container">
+                    <h2 class="form-title">Đăng ký</h2>
+                    <div id="registerError" class="alert alert-danger hidden"></div>
+                    <form id="registerForm" onsubmit="register(event)">
+                        <div class="form-group">
+                            <label for="registerName">Họ tên</label>
+                            <input type="text" id="registerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Mật khẩu</label>
+                            <input type="password" id="registerPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerRole">Vai trò</label>
+                            <select id="registerRole" required>
+                                <option value="user">Người dùng</option>
+                                <option value="admin">Quản trị viên</option>
+                            </select>
+                        </div>
+                        <button type="submit">Đăng ký</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="taskListTab" class="tab-content">
+                <div id="taskListMessages"></div>
+                
+                <div id="adminControls" class="form-container hidden">
+                    <h2 class="form-title">Thêm công việc mới</h2>
+                    <div id="createTaskError" class="alert alert-danger hidden"></div>
+                    <form id="createTaskForm" onsubmit="createTask(event)">
+                        <div class="form-group">
+                            <label for="taskTitle">Tiêu đề</label>
+                            <input type="text" id="taskTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskDescription">Mô tả</label>
+                            <textarea id="taskDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskDueDate">Hạn chót</label>
+                            <input type="date" id="taskDueDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskCategory">Danh mục</label>
+                            <select id="taskCategory" required>
+                                <option value="Công việc">Công việc</option>
+                                <option value="Cá nhân">Cá nhân</option>
+                                <option value="Học tập">Học tập</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskStatus">Trạng thái</label>
+                            <select id="taskStatus" required>
+                                <option value="Pending">Chưa bắt đầu</option>
+                                <option value="In Progress">Đang thực hiện</option>
+                                <option value="Completed">Hoàn thành</option>
+                            </select>
+                        </div>
+                        <button type="submit">Thêm công việc</button>
+                    </form>
+                </div>
+                
+                <h2 class="form-title">Danh sách công việc</h2>
+                <div id="taskList" class="task-list"></div>
+            </div>
+            
+            <div id="editTaskTab" class="tab-content">
+                <div class="form-container">
+                    <h2 class="form-title">Chỉnh sửa công việc</h2>
+                    <div id="editTaskError" class="alert alert-danger hidden"></div>
+                    <form id="editTaskForm" onsubmit="updateTask(event)">
+                        <input type="hidden" id="editTaskId">
+                        <div class="form-group">
+                            <label for="editTaskTitle">Tiêu đề</label>
+                            <input type="text" id="editTaskTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskDescription">Mô tả</label>
+                            <textarea id="editTaskDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskDueDate">Hạn chót</label>
+                            <input type="date" id="editTaskDueDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskCategory">Danh mục</label>
+                            <select id="editTaskCategory" required>
+                                <option value="Công việc">Công việc</option>
+                                <option value="Cá nhân">Cá nhân</option>
+                                <option value="Học tập">Học tập</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskStatus">Trạng thái</label>
+                            <select id="editTaskStatus" required>
+                                <option value="Pending">Chưa bắt đầu</option>
+                                <option value="In Progress">Đang thực hiện</option>
+                                <option value="Completed">Hoàn thành</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <input type="hidden" id="editTaskUserId">
+                        </div>
+                        <div class="form-group">
+                            <button type="submit">Lưu thay đổi</button>
+                            <button type="button" onclick="showTab('taskList')" class="secondary">Hủy</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Cấu hình API
+        const API_URL = 'http://localhost:8080';
+        let token = localStorage.getItem('token');
+        let userRole = localStorage.getItem('userRole');
+        
+        // Kiểm tra đăng nhập khi tải trang
+        window.onload = function() {
+            if (token) {
+                showLoggedInUI();
+                loadTasks();
+            } else {
+                showTab('login');
+            }
+        };
+        
+        // Hiển thị tab
+        function showTab(tabName) {
+            // Ẩn tất cả tab
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Hiển thị tab được chọn
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Cập nhật nút tab nếu có
+            const tabButton = document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`);
+            if (tabButton) {
+                tabButton.classList.add('active');
+            }
+        }
+        
+        // Hiển thị UI cho người dùng đã đăng nhập
+        function showLoggedInUI() {
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('authButtons').classList.add('hidden');
+            document.getElementById('userRole').textContent = userRole === 'admin' ? 'Quản trị viên | ' : 'Người dùng | ';
+            
+            // Cập nhật các tab
+            document.getElementById('tabButtons').innerHTML = '<button class="tab-button active" onclick="showTab(\'taskList\')">Danh sách công việc</button>';
+            
+            showTab('taskList');
+            
+            // Hiển thị quyền admin nếu có
+            if (userRole === 'admin') {
+                document.getElementById('adminControls').classList.remove('hidden');
+            } else {
+                document.getElementById('adminControls').classList.add('hidden');
+            }
+        }
+        
+        // Đăng ký
+        async function register(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('registerError');
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await axios.post(`${API_URL}/register`, {
+                    name: document.getElementById('registerName').value,
+                    email: document.getElementById('registerEmail').value,
+                    password: document.getElementById('registerPassword').value,
+                    role: document.getElementById('registerRole').value
+                });
+                
+                showNotification('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
+                document.getElementById('registerForm').reset();
+                showTab('login');
+            } catch (error) {
+                errorDiv.textContent = error.response?.data?.error || 'Đã xảy ra lỗi khi đăng ký';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+        
+        // Đăng nhập
+        async function login(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await axios.post(`${API_URL}/login`, {
+                    email: document.getElementById('loginEmail').value,
+                    password: document.getElementById('loginPassword').value
+                });
+                
+                token = response.data.token;
+                userRole = response.data.role;
+                
+                localStorage.setItem('token', token);
+                localStorage.setItem('userRole', userRole);
+                
+                showNotification('Đăng nhập thành công!', 'success');
+                document.getElementById('loginForm').reset();
+                showLoggedInUI();
+                loadTasks();
+            } catch (error) {
+                errorDiv.textContent = error.response?.data?.error || 'Đã xảy ra lỗi khi đăng nhập';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+        
+        // Đăng xuất
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            token = null;
+            userRole = null;
+            
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('authButtons').classList.remove('hidden');
+            document.getElementById('tabButtons').innerHTML = `
+                <button class="tab-button active" onclick="showTab('login')">Đăng nhập</button>
+                <button class="tab-button" onclick="showTab('register')">Đăng ký</button>
+            `;
+            
+            document.getElementById('taskList').innerHTML = '';
+            document.getElementById('taskListMessages').innerHTML = '';
+            showTab('login');
+            showNotification('Đã đăng xuất thành công!', 'success');
+        }
+        
+        // Tạo công việc mới
+        async function createTask(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('createTaskError');
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await axios.post(`${API_URL}/tasks`, {
+                    title: document.getElementById('taskTitle').value,
+                    description: document.getElementById('taskDescription').value,
+                    due_date: document.getElementById('taskDueDate').value,
+                    category: document.getElementById('taskCategory').value,
+                    status: document.getElementById('taskStatus').value
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                document.getElementById('createTaskForm').reset();
+                showNotification('Thêm công việc thành công!', 'success');
+                loadTasks();
+            } catch (error) {
+                errorDiv.textContent = error.response?.data?.error || 'Đã xảy ra lỗi khi tạo công việc';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+        
+        // Tải danh sách công việc
+        async function loadTasks() {
+            try {
+                const response = await axios.get(`${API_URL}/tasks`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const tasks = response.data.tasks;
+                const messages = response.data.messages;
+                
+                // Hiển thị thông báo
+                const messagesDiv = document.getElementById('taskListMessages');
+                messagesDiv.innerHTML = '';
+                
+                if (messages && messages.length > 0) {
+                    messages.forEach(message => {
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-warning';
+                        alertDiv.textContent = message;
+                        messagesDiv.appendChild(alertDiv);
+                    });
+                }
+                
+                // Hiển thị danh sách công việc
+                renderTasks(tasks);
+            } catch (error) {
+                console.error('Lỗi khi tải công việc:', error);
+                if (error.response && error.response.status === 401) {
+                    showNotification('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại!', 'error');
+                    logout();
+                }
+            }
+        }
+        
+        // Hiển thị danh sách công việc
+        function renderTasks(tasks) {
+            const taskListDiv = document.getElementById('taskList');
+            taskListDiv.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                taskListDiv.innerHTML = '<p>Không có công việc nào.</p>';
+                return;
+            }
+            
+            tasks.forEach(task => {
+                const taskCard = document.createElement('div');
+                taskCard.className = 'task-card';
+                
+                // Xác định class cho trạng thái
+                let statusClass = '';
+                switch (task.status) {
+                    case 'Pending':
+                        statusClass = 'status-pending';
+                        break;
+                    case 'In Progress':
+                        statusClass = 'status-inprogress';
+                        break;
+                    case 'Completed':
+                        statusClass = 'status-completed';
+                        break;
+                }
+                
+                // Format ngày
+                const dueDate = new Date(task.due_date);
+                const formattedDate = dueDate.toLocaleDateString('vi-VN');
+                
+                // Kiểm tra quá hạn
+                const isOverdue = new Date() > dueDate && task.status !== 'Completed';
+                
+                taskCard.innerHTML = `
+                    <div class="task-header">
+                        <h3 class="task-title">${task.title}</h3>
+                        <span class="task-category">${task.category}</span>
+                    </div>
+                    <p class="task-due-date ${isOverdue ? 'alert-danger' : ''}">
+                        ${isOverdue ? '⚠️ Quá hạn: ' : 'Hạn chót: '}${formattedDate}
+                    </p>
+                    <p class="task-description">${task.description}</p>
+                    <div class="task-footer">
+                        <span class="task-status ${statusClass}">
+                            ${task.status === 'Pending' ? 'Chưa bắt đầu' : 
+                              task.status === 'In Progress' ? 'Đang thực hiện' : 'Hoàn thành'}
+                        </span>
+                        <div class="task-actions">
+                            ${userRole === 'admin' ? `
+                                <button onclick="showEditTask(${task.ID})" class="secondary">Sửa</button>
+                                <button onclick="deleteTask(${task.ID})" class="danger">Xóa</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                taskListDiv.appendChild(taskCard);
+            });
+        }
+        
+        // Hiển thị form sửa công việc
+        async function showEditTask(taskId) {
+            try {
+                const response = await axios.get(`${API_URL}/tasks`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const task = response.data.tasks.find(t => t.ID === taskId);
+                if (!task) {
+                    showNotification('Không tìm thấy công việc!', 'error');
+                    return;
+                }
+                
+                document.getElementById('editTaskId').value = task.ID;
+                document.getElementById('editTaskTitle').value = task.title;
+                document.getElementById('editTaskDescription').value = task.description;
+                document.getElementById('editTaskDueDate').value = task.due_date;
+                document.getElementById('editTaskCategory').value = task.category;
+                document.getElementById('editTaskStatus').value = task.status;
+                document.getElementById('editTaskUserId').value = task.user_id;
+                
+                showTab('editTask');
+            } catch (error) {
+                console.error('Lỗi khi tải thông tin công việc:', error);
+                showNotification('Đã xảy ra lỗi khi tải thông tin công việc!', 'error');
+            }
+        }
+        
+        // Cập nhật công việc
+        async function updateTask(event) {
+            event.preventDefault();
+            const taskId = document.getElementById('editTaskId').value;
+            const errorDiv = document.getElementById('editTaskError');
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await axios.put(`${API_URL}/tasks/${taskId}`, {
+                    title: document.getElementById('editTaskTitle').value,
+                    description: document.getElementById('editTaskDescription').value,
+                    due_date: document.getElementById('editTaskDueDate').value,
+                    category: document.getElementById('editTaskCategory').value,
+                    status: document.getElementById('editTaskStatus').value,
+                    user_id: document.getElementById('editTaskUserId').value
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                showNotification('Cập nhật công việc thành công!', 'success');
+                showTab('taskList');
+                loadTasks();
+            } catch (error) {
+                errorDiv.textContent = error.response?.data?.error || 'Đã xảy ra lỗi khi cập nhật công việc';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+        
+        // Xóa công việc
+        async function deleteTask(taskId) {
+            if (!confirm('Bạn có chắc muốn xóa công việc này?')) {
+                return;
+            }
+            
+            try {
+                const response = await axios.delete(`${API_URL}/tasks/${taskId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                showNotification('Xóa công việc thành công!', 'success');
+                loadTasks();
+            } catch (error) {
+                console.error('Lỗi khi xóa công việc:', error);
+                showNotification('Đã xảy ra lỗi khi xóa công việc!', 'error');
+            }
+        }
+        
+        // Hiển thị thông báo
+        function showNotification(message, type) {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = `notification alert-${type === 'error' ? 'danger' : type}`;
+            notification.textContent = message;
+            
+            container.appendChild(notification);
+            
+            // Tự động ẩn sau 5 giây
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    container.removeChild(notification);
+                }, 300);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

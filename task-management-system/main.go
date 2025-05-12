@@ -280,9 +280,14 @@ func main() {
 	ConnectDB()
 	r := gin.Default()
 
+	r.Static("/static", "./frontend")
+
+	r.GET("/", func(c *gin.Context) {
+		c.File("./frontend/index.html")
+	})
+
 	r.POST("/register", Register)
 	r.POST("/login", Login)
-
 	r.POST("/tasks", CheckAuth, CheckRole("admin"), CreateTask)
 	r.GET("/tasks", CheckAuth, GetTasks)
 	r.PUT("/tasks/:id", CheckAuth, CheckRole("admin"), UpdateTask)
